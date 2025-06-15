@@ -14,8 +14,7 @@ jobs:
 
       - name: Set up Arduino CLI
         uses: arduino/setup-arduino-cli@v1
-        with:
-          version: latest
+  
 
       - name: Extract ESP32 Core 3.2.0 from ZIP
         run: |
