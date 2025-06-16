@@ -39,6 +39,8 @@ bool STATE_RELAY_2 = LOW;
 bool STATE_RELAY_3 = LOW;
 bool STATE_RELAY_4 = LOW;
 
+bool last_wifi_status = false;
+
 //---------------------------------------------------
 // RainMaker device objects
 static Switch my_switch1(device1, &RELAY_1);
@@ -66,7 +68,6 @@ void sysProvEvent(arduino_event_t *sys_event)
         break;
         case ARDUINO_EVENT_WIFI_STA_CONNECTED:
         Serial.printf("\nConnected to Wi-Fi!\n");
-        digitalWrite(WIFI_LED, HIGH);
         break;
     }
 }
@@ -79,37 +80,37 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
     const char *device_name = device->getDeviceName();
     const char *param_name = param->getParamName();
 
-    if(strcmp(device_name, device1) == 0) {
-        Serial.printf("Lightbulb1 = %s\n", val.val.b? "true" : "false");
-        if(strcmp(param_name, "Power") == 0) {
-            STATE_RELAY_1 = val.val.b;
-            STATE_RELAY_1 = !STATE_RELAY_1;
-            control_relay(1, RELAY_1, STATE_RELAY_1);
+    if(strcmp(param_name, "Power") == 0) {
+        bool incoming_state = val.val.b;
+
+        if(strcmp(device_name, device1) == 0) {
+            STATE_RELAY_1 = incoming_state;
+            digitalWrite(RELAY_1, STATE_RELAY_1);
+            preferences.begin("relays", false);
+            preferences.putBool("relay1", STATE_RELAY_1);
+            preferences.end();
         }
-    }
-    else if(strcmp(device_name, device2) == 0) {
-        Serial.printf("Switch value = %s\n", val.val.b? "true" : "false");
-        if(strcmp(param_name, "Power") == 0) {
-            STATE_RELAY_2 = val.val.b;
-            STATE_RELAY_2 = !STATE_RELAY_2;
-            control_relay(2, RELAY_2, STATE_RELAY_2);
+        else if(strcmp(device_name, device2) == 0) {
+            STATE_RELAY_2 = incoming_state;
+            digitalWrite(RELAY_2, STATE_RELAY_2);
+            preferences.begin("relays", false);
+            preferences.putBool("relay2", STATE_RELAY_2);
+            preferences.end();
         }
-    }
-    else if(strcmp(device_name, device3) == 0) {
-        Serial.printf("Switch value = %s\n", val.val.b? "true" : "false");
-        if(strcmp(param_name, "Power") == 0) {
-            STATE_RELAY_3 = val.val.b;
-            STATE_RELAY_3 = !STATE_RELAY_3;
-            control_relay(3, RELAY_3, STATE_RELAY_3);        
+        else if(strcmp(device_name, device3) == 0) {
+            STATE_RELAY_3 = incoming_state;
+            digitalWrite(RELAY_3, STATE_RELAY_3);
+            preferences.begin("relays", false);
+            preferences.putBool("relay3", STATE_RELAY_3);
+            preferences.end();
         }
-    }
-    else if(strcmp(device_name, device4) == 0) {
-        Serial.printf("Switch value = %s\n", val.val.b? "true" : "false");
-        if(strcmp(param_name, "Power") == 0) {
-            STATE_RELAY_4 = val.val.b;
-            STATE_RELAY_4 = !STATE_RELAY_4;
-            control_relay(4, RELAY_4, STATE_RELAY_4);
-        } 
+        else if(strcmp(device_name, device4) == 0) {
+            STATE_RELAY_4 = incoming_state;
+            digitalWrite(RELAY_4, STATE_RELAY_4);
+            preferences.begin("relays", false);
+            preferences.putBool("relay4", STATE_RELAY_4);
+            preferences.end();
+        }
     }
 }
 
@@ -155,13 +156,19 @@ void setup(){
     digitalWrite(RELAY_4, STATE_RELAY_4);
 
     Node my_node;    
-    my_node = RMaker.initNode("Ahmad_Logs");
+    my_node = RMaker.initNode("TAHIDUL'S Smart Home");
 
     //Standard switch device
     my_switch1.addCb(write_callback);
     my_switch2.addCb(write_callback);
     my_switch3.addCb(write_callback);
     my_switch4.addCb(write_callback);
+    
+    // Add icons here
+    my_switch1.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
+    my_switch2.addParam(Param("ui", "esp.param.ui", value("icon-device-fan"), PROP_FLAG_READ));
+    my_switch3.addParam(Param("ui", "esp.param.ui", value("icon-device-plug"), PROP_FLAG_READ));
+    my_switch4.addParam(Param("ui", "esp.param.ui", value("icon-device-outlet"), PROP_FLAG_READ));
 
     //Add switch device to the node   
     my_node.addDevice(my_switch1);
@@ -225,12 +232,12 @@ void loop()
     }
 
     delay(100);
+    
+    bool current_wifi_status = (WiFi.status() == WL_CONNECTED);
 
-    if (WiFi.status() != WL_CONNECTED){
-        digitalWrite(WIFI_LED, LOW);
-    }
-    else{
-        digitalWrite(WIFI_LED, HIGH);
+    if (current_wifi_status != last_wifi_status) {
+    digitalWrite(WIFI_LED, current_wifi_status ? HIGH : LOW);
+    last_wifi_status = current_wifi_status;
     }
 
     button_control();
@@ -288,27 +295,41 @@ void control_relay(int relay_no, int relay_pin, boolean &status){
 void remote_control()
 {
     if (IrReceiver.decode()) {
-        String ir_code = String(IrReceiver.decodedIRData.command, HEX);
-        if(ir_code.equals("0")) {IrReceiver.resume();return; }
+        uint8_t ir_cmd = IrReceiver.decodedIRData.command;
 
-        Serial.println(ir_code);
+        // Skip if command is 0 (often means repeat or noise)
+        if (ir_cmd == 0) {
+            IrReceiver.resume();
+            return;
+        }
 
-        if(ir_code == "c"){
-            control_relay(1, RELAY_1, STATE_RELAY_1);
-            my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+        Serial.println(IrReceiver.decodedIRData.command, HEX);
+
+        switch (ir_cmd) {
+            case 0x0C:  // Replace with your real code for Switch1
+                control_relay(1, RELAY_1, STATE_RELAY_1);
+                my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+                break;
+
+            case 0x18:  // Switch2
+                control_relay(2, RELAY_2, STATE_RELAY_2);
+                my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+                break;
+
+            case 0x5E:  // Switch3
+                control_relay(3, RELAY_3, STATE_RELAY_3);
+                my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+                break;
+
+            case 0x08:  // Switch4
+                control_relay(4, RELAY_4, STATE_RELAY_4);
+                my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+                break;
+
+            default:
+                Serial.println("Unknown IR command");
         }
-        else if(ir_code == "18"){
-            control_relay(2, RELAY_2, STATE_RELAY_2);
-            my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
-        }
-        else if(ir_code == "5e"){
-            control_relay(3, RELAY_3, STATE_RELAY_3);
-            my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
-        }
-        else if(ir_code == "8"){
-            control_relay(4, RELAY_4, STATE_RELAY_4);
-            my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
-        }
-        IrReceiver.resume();
+
+        IrReceiver.resume();  // Always resume at the end
     }
 }
