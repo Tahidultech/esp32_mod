@@ -16,31 +16,19 @@ jobs:
 
     - name: Set up Arduino CLI
       uses: arduino/setup-arduino-cli@v1
-    
 
-    - name: Unzip ESP32 core to correct hardware path
+
+    - name: Unzip ESP32 core to hardware path
       run: |
         mkdir -p /home/runner/Arduino/hardware/espressif/esp32/
         unzip -q ./esp32.zip -d /home/runner/Arduino/hardware/espressif/esp32/
 
-    - name: Configure Arduino CLI for custom hardware
-      run: |
-        arduino-cli config init
-        arduino-cli config set directories.hardware /home/runner/Arduino/hardware
-        arduino-cli core list
+    - name: Verify unzip contents (debug)
+      run: ls -R /home/runner/Arduino/hardware/
 
-    - name: Confirm ESP32 Core is Detected
-      run: arduino-cli core list
-
-    - name: Compile Sketch with Custom Partition
+    - name: Compile sketch using custom core
       run: |
         arduino-cli compile \
-            --fqbn esp32:esp32:esp32doit-devkit-v1 \
-            --output-dir output \
-            esp32_mod.ino
-
-    - name: Upload Compiled Firmware
-      uses: actions/upload-artifact@v4
-      with:
-          name: firmware
-          path: output/esp32_mod.ino.bin
+          --fqbn esp32:esp32:esp32doit-devkit-v1 \
+          --hardware /home/runner/Arduino/hardware \
+          ./esp32_mod.ino
