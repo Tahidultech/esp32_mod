@@ -23,9 +23,9 @@ jobs:
 
     - name: Unzip ESP32 core to hardware path
       run: |
-        mkdir -p /home/runner/.arduino15/packages/esp32/hardware/
-        unzip -q ./esp32.zip -d /home/runner/.arduino15/packages/esp32/hardware/esp32
-
+           mkdir -p /home/runner/.arduino15/packages/esp32/hardware/
+           unzip -oq ./esp32.zip -d /home/runner/.arduino15/packages/esp32/hardware/esp32
+    
     - name: Verify unzip contents (debug)
       run: ls -R /home/runner/.arduino15/packages/esp32/hardware/
 
