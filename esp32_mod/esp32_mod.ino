@@ -169,7 +169,7 @@ void setup(){
     my_node.addDevice(my_switch3);
     my_node.addDevice(my_switch4);
 
-    RMaker.enableOTA(OTA_USING_PARAMS);
+    //RMaker.enableOTA(OTA_USING_PARAMS);
     RMaker.enableTZService();
     RMaker.enableSchedule();
 
