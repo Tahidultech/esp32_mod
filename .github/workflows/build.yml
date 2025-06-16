@@ -19,7 +19,7 @@ jobs:
       - name: Extract ESP32 Core 3.2.0 from ZIP
         run: |
           mkdir -p $HOME/Arduino/hardware/espressif
-          unzip esp32.zip -d $HOME/Arduino/hardware/espressif/esp32
+          unzip esp32.zip -d $HOME/Arduino/hardware/espressif/esp32/3.2.0/
 
       - name: Confirm ESP32 Core is Detected
         run: arduino-cli core list
