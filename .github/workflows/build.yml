@@ -30,10 +30,10 @@ jobs:
       run: ls -R /home/runner/.arduino15/packages/esp32/hardware/
 
     - name: Compile Sketch
-      run: arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 --output-dir output/esp32_mod/esp32_mod.ino
+      run: arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 --output-dir output/esp32_mod esp32_mod/esp32_mod.ino
+
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4.6.2
       with:
-        name: firmware
-        path: output/esp32_mod.ino.bin
-          
+         name: firmware
+         path: output/esp32_mod/esp32_mod.ino.bin
