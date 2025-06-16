@@ -1,4 +1,4 @@
-name: Compile ESP32 RainMaker No OTA Partition
+name: Compile ESP32 Partition BIN
 
 on:
   push:
@@ -17,7 +17,10 @@ jobs:
       with:
         python-version: '3.x'
 
-    - name: Install ESP32 Arduino Core
+    - name: Set up Arduino CLI
+      uses: arduino/setup-arduino-cli@v1
+
+    - name: Install ESP32 Core
       run: |
         arduino-cli core update-index
         arduino-cli core install esp32:esp32@3.2.0
@@ -25,7 +28,7 @@ jobs:
     - name: Compile rainmaker_4MB_no_ota.csv to .bin
       run: |
         PARTITIONS_DIR=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools/partitions
-        SCRIPT=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools/partitions/gen_esp32part.py
+        SCRIPT=$PARTITIONS_DIR/gen_esp32part.py
         CSV=$PARTITIONS_DIR/rainmaker_4MB_no_ota.csv
         mkdir -p output
         python3 "$SCRIPT" "$CSV" output/rainmaker_4MB_no_ota.bin
