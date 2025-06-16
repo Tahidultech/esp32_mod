@@ -1,7 +1,9 @@
-name: Build Firmware
+name: Build ESP32 Sketch with Custom Core
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
     branches: [ main ]
 
 jobs:
@@ -9,30 +11,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
-  
+    - name: Set up Arduino CLI
+      uses: arduino/setup-arduino-cli@v1
+    
 
-      - name: Extract ESP32 Core 3.2.0 from ZIP
-        run: |
-          mkdir -p $HOME/Arduino/hardware/espressif
-          unzip esp32.zip -d $HOME/Arduino/hardware/espressif/esp32
+    - name: Unzip ESP32 core to correct hardware path
+      run: |
+        mkdir -p /home/runner/Arduino/hardware/espressif/esp32/
+        unzip -q ./esp32.zip -d /home/runner/Arduino/hardware/espressif/esp32/
 
-      - name: Confirm ESP32 Core is Detected
-        run: arduino-cli core list
+    - name: Configure Arduino CLI for custom hardware
+      run: |
+        arduino-cli config init
+        arduino-cli config set directories.hardware /home/runner/Arduino/hardware
+        arduino-cli core list
 
-      - name: Compile Sketch with Custom Partition
-        run: |
-          arduino-cli compile \
+    - name: Confirm ESP32 Core is Detected
+      run: arduino-cli core list
+
+    - name: Compile Sketch with Custom Partition
+      run: |
+        arduino-cli compile \
             --fqbn esp32:esp32:esp32doit-devkit-v1 \
             --output-dir output \
             esp32_mod.ino
 
-      - name: Upload Compiled Firmware
-        uses: actions/upload-artifact@v4
-        with:
+    - name: Upload Compiled Firmware
+      uses: actions/upload-artifact@v4
+      with:
           name: firmware
           path: output/esp32_mod.ino.bin
