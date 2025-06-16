@@ -27,9 +27,9 @@ jobs:
 
     - name: Compile rainmaker_4MB_no_ota.csv to .bin
       run: |
-        PARTITIONS_DIR=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools/partitions
-        SCRIPT=$PARTITIONS_DIR/gen_esp32part.py
-        CSV=$PARTITIONS_DIR/rainmaker_4MB_no_ota.csv
+        TOOLS_DIR=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools
+        SCRIPT=$TOOLS_DIR/gen_esp32part.py
+        CSV=$TOOLS_DIR/partitions/rainmaker_4MB_no_ota.csv
         mkdir -p output
         python3 "$SCRIPT" "$CSV" output/rainmaker_4MB_no_ota.bin
 
