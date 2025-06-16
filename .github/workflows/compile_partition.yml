@@ -1,0 +1,37 @@
+name: Compile ESP32 RainMaker No OTA Partition
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-partition:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install ESP32 Arduino Core
+      run: |
+        arduino-cli core update-index
+        arduino-cli core install esp32:esp32@3.2.0
+
+    - name: Compile rainmaker_4MB_no_ota.csv to .bin
+      run: |
+        PARTITIONS_DIR=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools/partitions
+        SCRIPT=$HOME/.arduino15/packages/esp32/hardware/esp32/3.2.0/tools/partitions/gen_esp32part.py
+        CSV=$PARTITIONS_DIR/rainmaker_4MB_no_ota.csv
+        mkdir -p output
+        python3 "$SCRIPT" "$CSV" output/rainmaker_4MB_no_ota.bin
+
+    - name: Upload Compiled Partition BIN
+      uses: actions/upload-artifact@v4
+      with:
+        name: rainmaker-no-ota-partition
+        path: output/rainmaker_4MB_no_ota.bin
