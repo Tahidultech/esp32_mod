@@ -20,15 +20,17 @@ jobs:
 
     - name: Unzip ESP32 core to hardware path
       run: |
-        mkdir -p /home/runner/Arduino/hardware/espressif/esp32/
-        unzip -q ./esp32.zip -d /home/runner/Arduino/hardware/espressif/esp32/
+        mkdir -p /home/runner/.arduino15/packages/esp32/hardware/
+        unzip -q ./esp32.zip -d /home/runner/.arduino15/packages/esp32/hardware/esp32
 
     - name: Verify unzip contents (debug)
-      run: ls -R /home/runner/Arduino/hardware/
+      run: ls -R home/runner/.arduino15/packages/esp32/hardware/
 
-    - name: Compile sketch using custom core
-      run: |
-        arduino-cli compile \
-          --fqbn esp32:esp32:esp32doit-devkit-v1 \
-          --hardware /home/runner/Arduino/hardware \
-          ./esp32_mod.ino
+    - name: Compile Sketch
+      run: arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 --output-dir output esp32_mod.ino
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: firmware
+        path: output/esp32_mod.ino.bin
+          
