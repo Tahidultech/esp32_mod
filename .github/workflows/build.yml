@@ -17,6 +17,9 @@ jobs:
     - name: Set up Arduino CLI
       uses: arduino/setup-arduino-cli@v1
 
+    - name: Install ESP32 core
+      run: arduino-cli core install esp32:esp32@3.2.0
+
 
     - name: Unzip ESP32 core to hardware path
       run: |
