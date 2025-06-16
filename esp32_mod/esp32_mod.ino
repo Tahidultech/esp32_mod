@@ -120,6 +120,11 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
 void setup(){
     uint32_t chipId = 0;
     Serial.begin(115200);
+    
+    pinMode(34, INPUT_PULLUP);
+    pinMode(35, INPUT_PULLUP);
+    pinMode(32, INPUT_PULLUP);
+    pinMode(33, INPUT_PULLUP);
 
     // Preferences (NVS) - no need to define size
     preferences.begin("relays", false);
@@ -141,7 +146,7 @@ void setup(){
 
     pinMode(gpio_reset, INPUT);
     pinMode(WIFI_LED, OUTPUT);
-    digitalWrite(WIFI_LED, LOW);
+  
 
     // Retrieve relay states from Preferences (NVS) or set to default LOW
     STATE_RELAY_1 = preferences.getBool("relay1", LOW);
@@ -165,10 +170,10 @@ void setup(){
     my_switch4.addCb(write_callback);
     
     // Add icons here
-    my_switch1.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
-    my_switch2.addParam(Param("ui", "esp.param.ui", value("icon-device-fan"), PROP_FLAG_READ));
-    my_switch3.addParam(Param("ui", "esp.param.ui", value("icon-device-plug"), PROP_FLAG_READ));
-    my_switch4.addParam(Param("ui", "esp.param.ui", value("icon-device-outlet"), PROP_FLAG_READ));
+    my_switch1.addParam(Param("esp.param.icon", "esp.param.icon", value("lightbulb"), PROP_FLAG_READ));
+    my_switch2.addParam(Param("esp.param.icon", "esp.param.icon", value("fan"), PROP_FLAG_READ));
+    my_switch3.addParam(Param("esp.param.icon", "esp.param.icon", value("plug"), PROP_FLAG_READ));
+    my_switch4.addParam(Param("esp.param.icon", "esp.param.icon", value("outlet"), PROP_FLAG_READ));
 
     //Add switch device to the node   
     my_node.addDevice(my_switch1);
@@ -236,7 +241,7 @@ void loop()
     bool current_wifi_status = (WiFi.status() == WL_CONNECTED);
 
     if (current_wifi_status != last_wifi_status) {
-    digitalWrite(WIFI_LED, current_wifi_status ? HIGH : LOW);
+    digitalWrite(WIFI_LED, current_wifi_status ? LOW : HIGH);
     last_wifi_status = current_wifi_status;
     }
 
