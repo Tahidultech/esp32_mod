@@ -8,8 +8,9 @@
 //---------------------------------------------------
 const char *service_name = "Prov_Tahidultech";
 const char *pop = "12345678";
-const byte IR_RECEIVE_PIN = 14;
 
+// Virtual Alarm (no GPIO attached)
+static Switch virtual_alarm("LDR Alarm", NULL); // RainMaker UI only
 //---------------------------------------------------
 // Device Names
 char device1[] = "Switch1";
@@ -19,18 +20,26 @@ char device4[] = "Switch4";
 
 //---------------------------------------------------
 // GPIO mapping
-static uint8_t RELAY_1 = 5;   // D23
-static uint8_t RELAY_2 = 18;  // D22
-static uint8_t RELAY_3 = 19;  // D21
-static uint8_t RELAY_4 = 21;  // D19
+static uint8_t RELAY_1 = 5;  //D5
+static uint8_t RELAY_2 = 18; //D18
+static uint8_t RELAY_3 = 19; //D19
+static uint8_t RELAY_4 = 21; //D21
 
-ezButton button1(34);
-ezButton button2(35);
-ezButton button3(32);
-ezButton button4(33);
+ezButton button1(27);   //D27
+ezButton button2(14);   //D14
+ezButton button3(12);   //D12
+ezButton button4(13);   //D13
 
-static uint8_t WIFI_LED    = 2;   // D2
+static uint8_t WIFI_LED    = 4;  //D4
 static uint8_t gpio_reset = 0;
+
+const byte IR_RECEIVE_PIN = 22; //D22
+
+#define LDR_PIN 34  //D34
+int ldr_value = 0;
+int ldr_low_threshold = 500;
+int ldr_high_threshold = 3500;
+bool security_enabled = false;
 
 //---------------------------------------------------
 // Relay State
@@ -47,6 +56,10 @@ static Switch my_switch1(device1, &RELAY_1);
 static Switch my_switch2(device2, &RELAY_2);
 static Switch my_switch3(device3, &RELAY_3);
 static Switch my_switch4(device4, &RELAY_4);
+
+// Extra switches for All ON and All OFF
+Switch all_on_device("All On");
+Switch all_off_device("All Off");
 
 // Preferences for NVS storage
 Preferences preferences;
@@ -79,6 +92,22 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
 {
     const char *device_name = device->getDeviceName();
     const char *param_name = param->getParamName();
+    
+    // Inside write_callback function
+    if (strcmp(device_name, "Node") == 0) { // Node-level params
+        if (strcmp(param_name, "SecurityMode") == 0) {
+            security_enabled = val.val.b;
+            Serial.printf("🔐 Security Mode: %s\n", security_enabled ? "ON" : "OFF");
+        }
+        else if (strcmp(param_name, "HighThresh") == 0) {
+            ldr_high_threshold = val.val.i;
+            Serial.printf("🔼 High Threshold Set: %d\n", ldr_high_threshold);
+        }
+        else if (strcmp(param_name, "LowThresh") == 0) {
+            ldr_low_threshold = val.val.i;
+            Serial.printf("🔽 Low Threshold Set: %d\n", ldr_low_threshold);
+        }
+    }
 
     if(strcmp(param_name, "Power") == 0) {
         bool incoming_state = val.val.b;
@@ -111,6 +140,49 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
             preferences.putBool("relay4", STATE_RELAY_4);
             preferences.end();
         }
+        else if (strcmp(device_name, "All On") == 0) {
+        STATE_RELAY_1 = STATE_RELAY_2 = STATE_RELAY_3 = STATE_RELAY_4 = HIGH;
+
+        digitalWrite(RELAY_1, STATE_RELAY_1);
+        digitalWrite(RELAY_2, STATE_RELAY_2);
+        digitalWrite(RELAY_3, STATE_RELAY_3);
+        digitalWrite(RELAY_4, STATE_RELAY_4);
+
+        preferences.begin("relays", false);
+        preferences.putBool("relay1", STATE_RELAY_1);
+        preferences.putBool("relay2", STATE_RELAY_2);
+        preferences.putBool("relay3", STATE_RELAY_3);
+        preferences.putBool("relay4", STATE_RELAY_4);
+        preferences.end();
+
+        my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+        my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+        my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+        my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+        Serial.println("All Relays ON from App");
+
+    }
+    else if (strcmp(device_name, "All Off") == 0) {
+        STATE_RELAY_1 = STATE_RELAY_2 = STATE_RELAY_3 = STATE_RELAY_4 = LOW;
+
+        digitalWrite(RELAY_1, STATE_RELAY_1);
+        digitalWrite(RELAY_2, STATE_RELAY_2);
+        digitalWrite(RELAY_3, STATE_RELAY_3);
+        digitalWrite(RELAY_4, STATE_RELAY_4);
+
+        preferences.begin("relays", false);
+        preferences.putBool("relay1", STATE_RELAY_1);
+        preferences.putBool("relay2", STATE_RELAY_2);
+        preferences.putBool("relay3", STATE_RELAY_3);
+        preferences.putBool("relay4", STATE_RELAY_4);
+        preferences.end();
+
+        my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+        my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+        my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+        my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+        Serial.println("All Relays OFF from App");
+    }
     }
 }
 
@@ -121,10 +193,29 @@ void setup(){
     uint32_t chipId = 0;
     Serial.begin(115200);
     
-    pinMode(34, INPUT_PULLUP);
-    pinMode(35, INPUT_PULLUP);
-    pinMode(32, INPUT_PULLUP);
-    pinMode(33, INPUT_PULLUP);
+    
+    Ticker ldrTicker;
+    ldrTicker.attach(3, checkLdrAlarm);  // প্রতি ৩ সেকেন্ডে চেক করবে
+    
+        // Add these inside setup()
+    
+    static Device ldr_sensor("LDR Monitor", "esp.device.sensor", "ldr");
+    static Param param_ldr("LDR", "esp.param.int", value(0), PROP_FLAG_READ);
+    ldr_sensor.addParam(param_ldr);
+    RMaker.addDevice(ldr_sensor);
+    
+    // Security Parameters
+    static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    
+    my_node.addParam(param_security);
+    my_node.addParam(param_high_thresh);
+    my_node.addParam(param_low_thresh);
+    
+    virtual_alarm.addCb(write_callback);  // Optional, for user manual control
+    virtual_alarm.addParam(Param("esp.param.icon", "esp.param.icon", value("alert"), PROP_FLAG_READ));
+    my_node.addDevice(virtual_alarm);
 
     // Preferences (NVS) - no need to define size
     preferences.begin("relays", false);
@@ -174,12 +265,21 @@ void setup(){
     my_switch2.addParam(Param("esp.param.icon", "esp.param.icon", value("fan"), PROP_FLAG_READ));
     my_switch3.addParam(Param("esp.param.icon", "esp.param.icon", value("plug"), PROP_FLAG_READ));
     my_switch4.addParam(Param("esp.param.icon", "esp.param.icon", value("outlet"), PROP_FLAG_READ));
+    
+        // All ON/OFF switch settings
+    all_on_device.addCb(write_callback);
+    all_off_device.addCb(write_callback);
+    
+    all_on_device.addParam(Param("esp.param.icon", "esp.param.icon", value("alarm-light"), PROP_FLAG_READ));
+    all_off_device.addParam(Param("esp.param.icon", "esp.param.icon", value("power"), PROP_FLAG_READ));
 
     //Add switch device to the node   
     my_node.addDevice(my_switch1);
     my_node.addDevice(my_switch2);
     my_node.addDevice(my_switch3);
     my_node.addDevice(my_switch4);
+    my_node.addDevice(all_on_device);
+    my_node.addDevice(all_off_device);
 
     //RMaker.enableOTA(OTA_USING_PARAMS);
     RMaker.enableTZService();
@@ -211,6 +311,23 @@ void setup(){
     Serial.printf("Relay4 is %s \n", STATE_RELAY_4? "ON" : "OFF");
 }
 
+void checkLdrAlarm() {
+  int ldr_value = analogRead(34);
+  Serial.printf("LDR Value: %d\n", ldr_value);
+
+  if (security_enabled) {
+    if (ldr_value > ldr_high_threshold) {
+        virtual_alarm.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, true);
+        Serial.println("🚨 LDR HIGH Alarm Triggered!");
+    } else if (ldr_value < ldr_low_threshold) {
+        virtual_alarm.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, true);
+        Serial.println("⚠️ LDR LOW Alarm Triggered!");
+    } else {
+        virtual_alarm.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, false);
+    }
+  }
+}
+
 /****************************************************************************************************
  * loop Function
 *****************************************************************************************************/
@@ -236,7 +353,7 @@ void loop()
         }
     }
 
-    delay(50);
+    delay(100);
     
     bool current_wifi_status = (WiFi.status() == WL_CONNECTED);
 
@@ -297,10 +414,84 @@ void control_relay(int relay_no, int relay_pin, boolean &status){
 /****************************************************************************************************
  * remote_control Function
 *****************************************************************************************************/
-void remote_control() {
+void remote_control()
+{
     if (IrReceiver.decode()) {
-        IrReceiver.printIRResultRawFormatted(&Serial, true);  // বিস্তারিত RAW প্যাটার্ন
-        IrReceiver.printIRResultShort(&Serial);               // সহজ ফরম্যাট
+        uint64_t raw_code = IrReceiver.decodedIRData.decodedRawData;
+        Serial.print("Protocol: ");
+        Serial.print(getProtocolString(IrReceiver.decodedIRData.protocol));
+        Serial.print("Raw Code: 0x");
+        Serial.println(raw_code, HEX);
+
+        switch (raw_code) {
+            case 0x3B04FDC611C:  // Switch1
+                control_relay(1, RELAY_1, STATE_RELAY_1);
+                my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+                break;
+
+            case 0x3BC43DC611C:  // Switch2 (update with real value)
+                control_relay(2, RELAY_2, STATE_RELAY_2);
+                my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+                break;
+
+            case 0x3A05FDC611C:  // Switch3 (update with real value)
+                control_relay(3, RELAY_3, STATE_RELAY_3);
+                my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+                break;
+
+            case 0x3AC53DC611C:  // Switch4 (update with real value)
+                control_relay(4, RELAY_4, STATE_RELAY_4);
+                my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+                break;
+
+            case 0x3C43BDC611C:  // All ON (update with real value)
+                STATE_RELAY_1 = STATE_RELAY_2 = STATE_RELAY_3 = STATE_RELAY_4 = HIGH;
+                digitalWrite(RELAY_1, STATE_RELAY_1);
+                digitalWrite(RELAY_2, STATE_RELAY_2);
+                digitalWrite(RELAY_3, STATE_RELAY_3);
+                digitalWrite(RELAY_4, STATE_RELAY_4);
+
+                preferences.begin("relays", false);
+                preferences.putBool("relay1", STATE_RELAY_1);
+                preferences.putBool("relay2", STATE_RELAY_2);
+                preferences.putBool("relay3", STATE_RELAY_3);
+                preferences.putBool("relay4", STATE_RELAY_4);
+                preferences.end();
+
+                my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+                my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+                my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+                my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+
+                Serial.println("All Relays ON");
+                break;
+
+            case 0x3B44BDC611C:  // All OFF (update with real value)
+                STATE_RELAY_1 = STATE_RELAY_2 = STATE_RELAY_3 = STATE_RELAY_4 = LOW;
+                digitalWrite(RELAY_1, STATE_RELAY_1);
+                digitalWrite(RELAY_2, STATE_RELAY_2);
+                digitalWrite(RELAY_3, STATE_RELAY_3);
+                digitalWrite(RELAY_4, STATE_RELAY_4);
+
+                preferences.begin("relays", false);
+                preferences.putBool("relay1", STATE_RELAY_1);
+                preferences.putBool("relay2", STATE_RELAY_2);
+                preferences.putBool("relay3", STATE_RELAY_3);
+                preferences.putBool("relay4", STATE_RELAY_4);
+                preferences.end();
+
+                my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
+                my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
+                my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
+                my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
+
+                Serial.println("All Relays OFF");
+                break;
+
+            default:
+                Serial.println("Unknown IR code");
+        }
+
         IrReceiver.resume();
     }
 }
