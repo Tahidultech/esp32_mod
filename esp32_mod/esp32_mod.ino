@@ -212,9 +212,19 @@ void setup(){
     static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
     static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
     
-    my_node.addParam(param_security);
-    my_node.addParam(param_high_thresh);
-    my_node.addParam(param_low_thresh);
+    // Create a virtual device named "LDR Alarm"
+    static Device virtual_alarm("LDR Alarm", "esp.device.sensor");
+    
+    // Add the parameters to the virtual device
+    virtual_alarm.addParam(param_security);
+    virtual_alarm.addParam(param_high_thresh);
+    virtual_alarm.addParam(param_low_thresh);
+    
+    // Optional UI icon for RainMaker app
+    virtual_alarm.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
+    
+    // Finally, add this device to the node
+    my_node.addDevice(virtual_alarm);
     
     virtual_alarm.addCb(write_callback);  // Optional, for user manual control
     virtual_alarm.addParam(Param("esp.param.icon", "esp.param.icon", value("alert"), PROP_FLAG_READ));
