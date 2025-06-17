@@ -1,6 +1,7 @@
 #include "RMaker.h"
 #include "WiFi.h"
 #include "WiFiProv.h"
+#include <Ticker.h>
 #include <Preferences.h>       // Use Preferences instead of EEPROM (NVS storage)
 #include <ezButton.h>
 #include <IRremote.hpp>        // v4.x+ of IRremote
@@ -8,6 +9,8 @@
 //---------------------------------------------------
 const char *service_name = "Prov_Tahidultech";
 const char *pop = "12345678";
+
+Node my_node;
 
 // Virtual Alarm (no GPIO attached)
 static Switch virtual_alarm("LDR Alarm", NULL); // RainMaker UI only
@@ -199,10 +202,10 @@ void setup(){
     
         // Add these inside setup()
     
-    static Device ldr_sensor("LDR Monitor", "esp.device.sensor", "ldr");
+    static Device ldr_sensor("LDR Monitor", "esp.device.sensor", (void*)"ldr");  
     static Param param_ldr("LDR", "esp.param.int", value(0), PROP_FLAG_READ);
     ldr_sensor.addParam(param_ldr);
-    RMaker.addDevice(ldr_sensor);
+    my_node.addDevice(&ldr_sensor);
     
     // Security Parameters
     static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
