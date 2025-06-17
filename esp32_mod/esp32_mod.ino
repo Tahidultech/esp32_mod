@@ -36,6 +36,7 @@ static uint8_t gpio_reset = 0;
 const byte IR_RECEIVE_PIN = 22; //D22
 
 #define LDR_PIN 34  //D34
+Ticker ldrTicker;
 int ldr_value = 0;
 int ldr_low_threshold = 500;
 int ldr_high_threshold = 3500;
@@ -193,8 +194,7 @@ void setup(){
     uint32_t chipId = 0;
     Serial.begin(115200);
     
-    
-    Ticker ldrTicker;
+
     ldrTicker.attach(3, checkLdrAlarm);  // প্রতি ৩ সেকেন্ডে চেক করবে
     
         // Add these inside setup()
@@ -251,7 +251,7 @@ void setup(){
     digitalWrite(RELAY_3, STATE_RELAY_3);
     digitalWrite(RELAY_4, STATE_RELAY_4);
 
-    Node my_node;    
+  
     my_node = RMaker.initNode("TAHIDUL'S Smart Home");
 
     //Standard switch device
@@ -261,17 +261,18 @@ void setup(){
     my_switch4.addCb(write_callback);
     
     // Add icons here
-    my_switch1.addParam(Param("esp.param.icon", "esp.param.icon", value("lightbulb"), PROP_FLAG_READ));
-    my_switch2.addParam(Param("esp.param.icon", "esp.param.icon", value("fan"), PROP_FLAG_READ));
-    my_switch3.addParam(Param("esp.param.icon", "esp.param.icon", value("plug"), PROP_FLAG_READ));
-    my_switch4.addParam(Param("esp.param.icon", "esp.param.icon", value("outlet"), PROP_FLAG_READ));
+    my_switch1.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
+    my_switch2.addParam(Param("ui", "esp.param.ui", value("icon-device-fan"), PROP_FLAG_READ));
+    my_switch3.addParam(Param("ui", "esp.param.ui", value("icon-device-plug"), PROP_FLAG_READ));
+    my_switch4.addParam(Param("ui", "esp.param.ui", value("icon-device-outlet"), PROP_FLAG_READ));
+    virtual_alarm.addParam(Param("ui", "esp.param.ui", value("icon-status-warning"), PROP_FLAG_READ));
     
         // All ON/OFF switch settings
     all_on_device.addCb(write_callback);
     all_off_device.addCb(write_callback);
     
-    all_on_device.addParam(Param("esp.param.icon", "esp.param.icon", value("alarm-light"), PROP_FLAG_READ));
-    all_off_device.addParam(Param("esp.param.icon", "esp.param.icon", value("power"), PROP_FLAG_READ));
+    all_on_device.addParam(Param("ui", "esp.param.ui", value("alarm-light"), PROP_FLAG_READ));
+    all_off_device.addParam(Param("ui", "esp.param.ui", value("power"), PROP_FLAG_READ));
 
     //Add switch device to the node   
     my_node.addDevice(my_switch1);
@@ -353,12 +354,12 @@ void loop()
         }
     }
 
-    delay(100);
+    delay(50);
     
     bool current_wifi_status = (WiFi.status() == WL_CONNECTED);
 
     if (current_wifi_status != last_wifi_status) {
-    digitalWrite(WIFI_LED, current_wifi_status ? LOW : HIGH);
+    digitalWrite(WIFI_LED, current_wifi_status ? HIGH : LOW);
     last_wifi_status = current_wifi_status;
     }
 
