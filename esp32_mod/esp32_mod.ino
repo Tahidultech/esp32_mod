@@ -236,7 +236,7 @@ void loop()
         }
     }
 
-    delay(100);
+    delay(50);
     
     bool current_wifi_status = (WiFi.status() == WL_CONNECTED);
 
@@ -297,44 +297,10 @@ void control_relay(int relay_no, int relay_pin, boolean &status){
 /****************************************************************************************************
  * remote_control Function
 *****************************************************************************************************/
-void remote_control()
-{
+void remote_control() {
     if (IrReceiver.decode()) {
-        uint8_t ir_cmd = IrReceiver.decodedIRData.command;
-
-        // Skip if command is 0 (often means repeat or noise)
-        if (ir_cmd == 0) {
-            IrReceiver.resume();
-            return;
-        }
-
-        Serial.println(IrReceiver.decodedIRData.command, HEX);
-
-        switch (ir_cmd) {
-            case 0x0C:  // Replace with your real code for Switch1
-                control_relay(1, RELAY_1, STATE_RELAY_1);
-                my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
-                break;
-
-            case 0x18:  // Switch2
-                control_relay(2, RELAY_2, STATE_RELAY_2);
-                my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
-                break;
-
-            case 0x5E:  // Switch3
-                control_relay(3, RELAY_3, STATE_RELAY_3);
-                my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
-                break;
-
-            case 0x08:  // Switch4
-                control_relay(4, RELAY_4, STATE_RELAY_4);
-                my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
-                break;
-
-            default:
-                Serial.println("Unknown IR command");
-        }
-
-        IrReceiver.resume();  // Always resume at the end
+        IrReceiver.printIRResultRawFormatted(&Serial, true);  // বিস্তারিত RAW প্যাটার্ন
+        IrReceiver.printIRResultShort(&Serial);               // সহজ ফরম্যাট
+        IrReceiver.resume();
     }
 }
