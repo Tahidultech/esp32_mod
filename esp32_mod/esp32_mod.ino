@@ -205,7 +205,7 @@ void setup(){
     static Device ldr_sensor("LDR Monitor", "esp.device.sensor", (void*)"ldr");  
     static Param param_ldr("LDR", "esp.param.int", value(0), PROP_FLAG_READ);
     ldr_sensor.addParam(param_ldr);
-    my_node.addDevice(&ldr_sensor);
+    my_node.addDevice(ldr_sensor);
     
     // Security Parameters
     static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
