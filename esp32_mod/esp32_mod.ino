@@ -13,8 +13,7 @@ const char *pop = "12345678";
 Node my_node;
 
 // Virtual Alarm (no GPIO attached)
-static Switch virtual_alarm("LDR Alarm", NULL); // RainMaker UI only
-//---------------------------------------------------
+static Param param_ldr("LDR", "esp.param.int", value(0), PROP_FLAG_READ);
 // Device Names
 char device1[] = "Switch1";
 char device2[] = "Switch2";
@@ -193,141 +192,138 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
 /****************************************************************************************************
  * setup Function
 *****************************************************************************************************/
-void setup(){
-    uint32_t chipId = 0;
+void setup() {
     Serial.begin(115200);
-    
+    uint32_t chipId = 0;
 
-    ldrTicker.attach(3, checkLdrAlarm);  // প্রতি ৩ সেকেন্ডে চেক করবে
-    
-        // Add these inside setup()
-    
-    static Device ldr_sensor("LDR Monitor", "esp.device.sensor", (void*)"ldr");  
-    static Param param_ldr("LDR", "esp.param.int", value(0), PROP_FLAG_READ);
-    ldr_sensor.addParam(param_ldr);
-    my_node.addDevice(ldr_sensor);
-    
-    // Security Parameters
-    static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
-    static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
-    static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
-    
-    // Create a virtual device named "LDR Alarm"
-    static Device virtual_alarm("LDR Alarm", "esp.device.sensor");
-    
-    // Add the parameters to the virtual device
-    virtual_alarm.addParam(param_security);
-    virtual_alarm.addParam(param_high_thresh);
-    virtual_alarm.addParam(param_low_thresh);
-    
-    // Optional UI icon for RainMaker app
-    virtual_alarm.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
-    
-    // Finally, add this device to the node
-    my_node.addDevice(virtual_alarm);
-    
-    virtual_alarm.addCb(write_callback);  // Optional, for user manual control
-    virtual_alarm.addParam(Param("esp.param.icon", "esp.param.icon", value("alert"), PROP_FLAG_READ));
-    my_node.addDevice(virtual_alarm);
-
-    // Preferences (NVS) - no need to define size
+    // Initialize Preferences (NVS)
     preferences.begin("relays", false);
 
-    // IRremote v4.x+ initialization
-    IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
-
-    // Set the Relays GPIOs as output mode
-    pinMode(RELAY_1, OUTPUT);
-    pinMode(RELAY_2, OUTPUT);
-    pinMode(RELAY_3, OUTPUT);
-    pinMode(RELAY_4, OUTPUT);
-
-    // set debounce time to 100 milliseconds
-    button1.setDebounceTime(100);
-    button2.setDebounceTime(100);
-    button3.setDebounceTime(100);
-    button4.setDebounceTime(100);
-
-    pinMode(gpio_reset, INPUT);
-    pinMode(WIFI_LED, OUTPUT);
-  
-
-    // Retrieve relay states from Preferences (NVS) or set to default LOW
+    // Load previous relay states from Preferences
     STATE_RELAY_1 = preferences.getBool("relay1", LOW);
     STATE_RELAY_2 = preferences.getBool("relay2", LOW);
     STATE_RELAY_3 = preferences.getBool("relay3", LOW);
     STATE_RELAY_4 = preferences.getBool("relay4", LOW);
 
-    // Write to the GPIOs the default state on booting
+    // Set relay pins as OUTPUT and write initial states
+    pinMode(RELAY_1, OUTPUT);
+    pinMode(RELAY_2, OUTPUT);
+    pinMode(RELAY_3, OUTPUT);
+    pinMode(RELAY_4, OUTPUT);
     digitalWrite(RELAY_1, STATE_RELAY_1);
     digitalWrite(RELAY_2, STATE_RELAY_2);
     digitalWrite(RELAY_3, STATE_RELAY_3);
     digitalWrite(RELAY_4, STATE_RELAY_4);
 
-  
+    // Set button debounce time
+    button1.setDebounceTime(100);
+    button2.setDebounceTime(100);
+    button3.setDebounceTime(100);
+    button4.setDebounceTime(100);
+
+    // Other GPIOs
+    pinMode(gpio_reset, INPUT);
+    pinMode(WIFI_LED, OUTPUT);
+
+    // IRremote initialization
+    IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+
+    // Ticker to check LDR alarm every 3 seconds
+    ldrTicker.attach(3, checkLdrAlarm);
+
+    // Initialize RainMaker node
     my_node = RMaker.initNode("TAHIDUL'S Smart Home");
 
-    //Standard switch device
+    // Add LDR device
+    Device ldr_sensor("LDR Monitor", "esp.device.sensor", (void*)"ldr");  
+    ldr_sensor.addParam(param_ldr);
+    my_node.addDevice(ldr_sensor);
+
+    // Add virtual alarm device
+    static Device virtual_alarm("LDR Alarm", "esp.device.sensor");
+    static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+
+    virtual_alarm.addParam(param_security);
+    virtual_alarm.addParam(param_high_thresh);
+    virtual_alarm.addParam(param_low_thresh);
+    virtual_alarm.addParam(Param("esp.param.icon", "esp.param.icon", value("alert"), PROP_FLAG_READ));
+    virtual_alarm.addCb(write_callback);
+    my_node.addDevice(virtual_alarm);
+
+    // Add main switches with icons and callbacks
     my_switch1.addCb(write_callback);
     my_switch2.addCb(write_callback);
     my_switch3.addCb(write_callback);
     my_switch4.addCb(write_callback);
-    
-    // Add icons here
+
     my_switch1.addParam(Param("ui", "esp.param.ui", value("icon-device-lightbulb"), PROP_FLAG_READ));
     my_switch2.addParam(Param("ui", "esp.param.ui", value("icon-device-fan"), PROP_FLAG_READ));
     my_switch3.addParam(Param("ui", "esp.param.ui", value("icon-device-plug"), PROP_FLAG_READ));
     my_switch4.addParam(Param("ui", "esp.param.ui", value("icon-device-outlet"), PROP_FLAG_READ));
-    virtual_alarm.addParam(Param("ui", "esp.param.ui", value("icon-status-warning"), PROP_FLAG_READ));
-    
-        // All ON/OFF switch settings
-    all_on_device.addCb(write_callback);
-    all_off_device.addCb(write_callback);
-    
-    all_on_device.addParam(Param("ui", "esp.param.ui", value("alarm-light"), PROP_FLAG_READ));
-    all_off_device.addParam(Param("ui", "esp.param.ui", value("power"), PROP_FLAG_READ));
 
-    //Add switch device to the node   
     my_node.addDevice(my_switch1);
     my_node.addDevice(my_switch2);
     my_node.addDevice(my_switch3);
     my_node.addDevice(my_switch4);
+
+    // Add all ON/OFF virtual switches
+    all_on_device.addCb(write_callback);
+    all_off_device.addCb(write_callback);
+    all_on_device.addParam(Param("ui", "esp.param.ui", value("alarm-light"), PROP_FLAG_READ));
+    all_off_device.addParam(Param("ui", "esp.param.ui", value("power"), PROP_FLAG_READ));
+
     my_node.addDevice(all_on_device);
     my_node.addDevice(all_off_device);
 
-    //RMaker.enableOTA(OTA_USING_PARAMS);
+    // Enable RainMaker services
     RMaker.enableTZService();
     RMaker.enableSchedule();
+    // RMaker.enableOTA(OTA_USING_PARAMS);  // Optional OTA
 
-    for(int i=0; i<17; i=i+8) {
+    // Generate Chip ID
+    for (int i = 0; i < 17; i += 8) {
         chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
     }
 
     Serial.printf("\nChip ID:  %d Service Name: %s\n", chipId, service_name);
-    Serial.printf("\nStarting ESP-RainMaker\n");
+    Serial.println("Starting ESP-RainMaker");
+
     RMaker.start();
 
+    // Provisioning
     WiFi.onEvent(sysProvEvent);
     #if CONFIG_IDF_TARGET_ESP32
-        WiFiProv.beginProvision(NETWORK_PROV_SCHEME_BLE, NETWORK_PROV_SCHEME_HANDLER_FREE_BTDM, NETWORK_PROV_SECURITY_1, pop, service_name);
+        WiFiProv.beginProvision(NETWORK_PROV_SCHEME_BLE,
+                                NETWORK_PROV_SCHEME_HANDLER_FREE_BTDM,
+                                NETWORK_PROV_SECURITY_1,
+                                pop, service_name);
     #else
-        WiFiProv.beginProvision(NETWORK_PROV_SCHEME_SOFTAP, NETWORK_PROV_SCHEME_HANDLER_NONE, NETWORK_PROV_SECURITY_1, pop, service_name);
+        WiFiProv.beginProvision(NETWORK_PROV_SCHEME_SOFTAP,
+                                NETWORK_PROV_SCHEME_HANDLER_NONE,
+                                NETWORK_PROV_SECURITY_1,
+                                pop, service_name);
     #endif
 
+    // Report initial state
     my_switch1.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_1);
     my_switch2.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_2);
     my_switch3.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_3);
     my_switch4.updateAndReportParam(ESP_RMAKER_DEF_POWER_NAME, STATE_RELAY_4);
 
-    Serial.printf("Relay1 is %s \n", STATE_RELAY_1? "ON" : "OFF");
-    Serial.printf("Relay2 is %s \n", STATE_RELAY_2? "ON" : "OFF");
-    Serial.printf("Relay3 is %s \n", STATE_RELAY_3? "ON" : "OFF");
-    Serial.printf("Relay4 is %s \n", STATE_RELAY_4? "ON" : "OFF");
+    Serial.printf("Relay1 is %s\n", STATE_RELAY_1 ? "ON" : "OFF");
+    Serial.printf("Relay2 is %s\n", STATE_RELAY_2 ? "ON" : "OFF");
+    Serial.printf("Relay3 is %s\n", STATE_RELAY_3 ? "ON" : "OFF");
+    Serial.printf("Relay4 is %s\n", STATE_RELAY_4 ? "ON" : "OFF");
 }
 
+// ---------- Inside checkLdrAlarm() ----------
 void checkLdrAlarm() {
   int ldr_value = analogRead(34);
   Serial.printf("LDR Value: %d\n", ldr_value);
+
+  param_ldr.updateAndReport(value(ldr_value));  // ✅ REPORT TO APP
 
   if (security_enabled) {
     if (ldr_value > ldr_high_threshold) {
