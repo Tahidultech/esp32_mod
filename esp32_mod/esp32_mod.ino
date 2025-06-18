@@ -44,6 +44,12 @@ int ldr_low_threshold = 500;
 int ldr_high_threshold = 3500;
 bool security_enabled = false;
 
+static Device virtual_alarm("LDR Alarm", "esp.device.sensor");
+static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
+static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
+
+
 //---------------------------------------------------
 // Relay State
 bool STATE_RELAY_1 = LOW;
@@ -240,10 +246,6 @@ void setup() {
     my_node.addDevice(ldr_sensor);
 
     // Add virtual alarm device
-    static Device virtual_alarm("LDR Alarm", "esp.device.sensor");
-    static Param param_security("SecurityMode", "esp.param.switch", value(false), PROP_FLAG_READ | PROP_FLAG_WRITE);
-    static Param param_high_thresh("HighThresh", "esp.param.slider", value(3500), PROP_FLAG_READ | PROP_FLAG_WRITE);
-    static Param param_low_thresh("LowThresh", "esp.param.slider", value(500), PROP_FLAG_READ | PROP_FLAG_WRITE);
 
     virtual_alarm.addParam(param_security);
     virtual_alarm.addParam(param_high_thresh);
